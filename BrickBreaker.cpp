@@ -8,21 +8,29 @@ class BrickBreaker : public olc::PixelGameEngine
 		SQUARE, RECTANGLE, CIRCLE, TRIANGLE
 	};
 
-	class Brick
+	class Paddle
 	{
 		public:
 			float x, y, width, height;
 			olc::Pixel color;
-			int lives;
 
-			Brick(float x, float y, float width, float height, olc::Pixel color)
+			Paddle(float x, float y, float width, float height, olc::Pixel color)
 			{
 				this->x = x;
 				this->y = y;
 				this->width = width;
 				this->height = height;
 				this->color = color;
+			}
+	};
 
+	class Brick : public Paddle
+	{
+		public:
+			int lives;
+
+			Brick(float x, float y, float width, float height, olc::Pixel color) : Paddle(x, y, width, height, color)
+			{
 				lives = 3;
 			}
 
@@ -46,7 +54,7 @@ class BrickBreaker : public olc::PixelGameEngine
 				this->velocity = velocity;
 			}
 
-			bool Collides(Brick b)
+			bool Collides(Paddle p)
 			{
 				// The ball doesn't exist.
 				return false;
