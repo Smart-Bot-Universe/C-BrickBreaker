@@ -1,5 +1,10 @@
 #include "GameEngine.h"
 
+/*
+	Bugs
+	1: Glitchy graphics.
+*/
+
 class BrickBreaker : public olc::PixelGameEngine
 {
 	enum BrickStructureShape
@@ -69,6 +74,8 @@ class BrickBreaker : public olc::PixelGameEngine
 		Paddle* player;
 		Ball* ball;
 
+		int points = 0;
+
 		BrickBreaker()
 		{
 			sAppName = "Brick Breaker";
@@ -125,6 +132,8 @@ class BrickBreaker : public olc::PixelGameEngine
 			}
 			else if (ball->y > ScreenHeight())
 			{
+				ball->x = float(ScreenWidth() >> 1);
+				ball->y = float(ScreenHeight() >> 1);
 				// GameOver or possibility just the removal of itself inside an std::vector<Ball>
 			}
 
@@ -135,8 +144,8 @@ class BrickBreaker : public olc::PixelGameEngine
 			}
 			else
 			{
-				// Figure out closest brick and then check collision with
-				for (int i = 1; i < bricks.size(); i++)
+				// Figure out closest brick and then check collision with in the future
+				for (int i = 0; i < bricks.size(); i++)
 				{
 					Brick* brick = &bricks[i];
 					if (ball->Collides(*brick))
@@ -153,20 +162,25 @@ class BrickBreaker : public olc::PixelGameEngine
 			for (int i = 0; i < bricks.size(); i++)
 			{
 				Brick b = bricks[i];
-				if (b.lives == 0)
+				if (b.lives <= 0)
 				{
 					bricks.erase(bricks.begin() + i);
+					points++;
 					continue;
 				}
 
 				FillRect(b.x, b.y, b.width, b.height, b.color);
 			}	
+
+			DrawString(5, 5, "Points: " + std::to_string(points));
+
 			return true;
 		}
 
 		void GenerateBricks()
 		{
 			int length = brickAmt >> 1;
+			int minX = (ScreenWidth() - brick_width * length) >> 1;
 			olc::Pixel color;
 
 			for (int x = 0; x < length; x++)
@@ -180,7 +194,7 @@ class BrickBreaker : public olc::PixelGameEngine
 					// First paranthesis is the offset from the gui border, second is the calculating where they are, and third is the offset from each other.
 					bricks.push_back(
 						*new Brick(
-							(brick_width) + (x * brick_width) + (1 * x), 
+							minX + (x * brick_width) + (1 * x),
 							(brick_height * 2) + (y * brick_height) + (1 * y), 
 							brick_width, brick_height, color
 						)
