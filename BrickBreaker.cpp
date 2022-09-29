@@ -9,30 +9,16 @@ class BrickBreaker : public olc::PixelGameEngine
 
 	class Paddle : public shape::Rectangle
 	{
-		private:
+		public:
 			float velocity;
 			olc::Key left, right;
 
 			Paddle(float x, float y, float width, float height, olc::Pixel color, olc::Key left, olc::Key right) : shape::Rectangle(x, y, width, height, color)
 			{
-				velocity = 10.0f;
+				velocity = 150.0f;
 
 				this->left = left;
 				this->right = right;
-			}
-
-			void OnUserUpdate(float fElapsedTime, BrickBreaker *b)
-			{
-				if (b->GetKey(left).bHeld && x > 0)
-				{
-					x -= velocity * fElapsedTime;
-				}
-				else if (b->GetKey(right).bHeld && x < b->ScreenWidth())
-				{
-					x += velocity * fElapsedTime;
-				}
-
-				b->FillRect(x, y, width, height, color);
 			}
 	};
 
@@ -43,13 +29,12 @@ class BrickBreaker : public olc::PixelGameEngine
 
 			Brick(float x, float y, float width, float height, olc::Pixel color) : shape::Rectangle(x, y, width, height, color)
 			{
-				lives = 3;
+				lives = 1;
 			}
 
 			void removeALife()
 			{
 				lives--;
-				
 			}
 	};
 
@@ -63,43 +48,15 @@ class BrickBreaker : public olc::PixelGameEngine
 				this->velocity = velocity;
 			}
 
-			void OnUserUpdate(float fElapsedTime, BrickBreaker* b)
+			bool Collides(shape::Rectangle r)
 			{
-				x += velocity.x * fElapsedTime;
-				y += velocity.y * fElapsedTime;
-
-				if (x < 0 || x > b->ScreenHeight())
+				olc::vf2d rPos =
 				{
-					velocity.x = -velocity.x;
-				}
-				if (y < 0)
-				{
-					velocity.y = -velocity.y;
-					y = radius / 2;
-				}
-				else if (y > b->ScreenHeight())
-				{
-					// GameOver or possibility just the removal of itself inside an std::vector<Ball>
-				}
-
-				// Figure out closest brick and then check collision with
-				Brick closestBrick = *new Brick(0, 0, 0, 0, olc::WHITE);
-				if (Collides(closestBrick))
-				{
-					closestBrick.removeALife();
-				}
-
-				b->FillCircle(x, y, radius, color);
-			}
-
-			bool Collides(shape::Rectangle p)
-			{
-				// The ball doesn't exist.
-				// Deal with the bounce here.
-				// Or just make two methods.
-				// Checking specific collisions.
-				// (Horizontal and Vertical)
-				return false;
+					Clamp(x, r.x, r.x + r.width),
+					Clamp(y, r.y, r.y + r.height)
+				};
+				float distance = abs(sqrt(pow(rPos.x - x, 2) + pow(rPos.y - y, 2)));
+				return (distance <= radius);
 			}
 	};
 
@@ -119,6 +76,9 @@ class BrickBreaker : public olc::PixelGameEngine
 		
 		bool OnUserCreate() override
 		{
+			player = new Paddle(float(ScreenWidth() >> 1), float(ScreenHeight() - 30), 50.0f, 10.0f, olc::WHITE, olc::Key::A, olc::Key::D);
+			ball = new Ball(float(ScreenWidth() >> 1), float(ScreenHeight() >> 1), 3.0f, olc::WHITE, { 100.0f, 100.0f });
+
 			brick_width = 30;
 			brick_height = 10;
 
@@ -130,12 +90,69 @@ class BrickBreaker : public olc::PixelGameEngine
 
 		bool OnUserUpdate(float fElapsedTime) override
 		{
+			if (bricks.size() == 0)
+			{
+				// YOU WON
+			}
+
+			Clear(olc::BLACK);
+
+			// Player OnUserUpdate();
+			if (GetKey(player->left).bHeld && player->x > 0)
+			{
+				player->x -= player->velocity * fElapsedTime;
+			}
+			else if (GetKey(player->right).bHeld && player->x < ScreenWidth())
+			{
+				player->x += player->velocity * fElapsedTime;
+			}
+			FillRect(player->x, player->y, player->width, player->height, player->color);
+			
+
+			// Ball OnUserUpdate();
+			ball->x += ball->velocity.x * fElapsedTime;
+			ball->y += ball->velocity.y * fElapsedTime;
+
+			if (ball->x < 0 || ball->x > ScreenWidth())
+			{
+				reverseBallMovement(ball, fElapsedTime);
+				ball->velocity.x = -ball->velocity.x;
+			}
+			if (ball->y < 0)
+			{
+				reverseBallMovement(ball, fElapsedTime);
+				ball->velocity.y = -ball->velocity.y;
+			}
+			else if (ball->y > ScreenHeight())
+			{
+				// GameOver or possibility just the removal of itself inside an std::vector<Ball>
+			}
+
+			if (ball->Collides(*player))
+			{
+				reverseBallMovement(ball, fElapsedTime);
+				ball->velocity.y *= -1;
+			}
+			else
+			{
+				// Figure out closest brick and then check collision with
+				for (int i = 1; i < bricks.size(); i++)
+				{
+					Brick* brick = &bricks[i];
+					if (ball->Collides(*brick))
+					{
+						brick->removeALife();
+						reverseBallMovement(ball, fElapsedTime);
+						ball->velocity.y *= -1;
+					}
+				}
+			}
+			FillCircle(ball->x, ball->y, ball->radius, ball->color);
+
+			// Rendering bricks
 			for (int i = 0; i < bricks.size(); i++)
 			{
 				Brick b = bricks[i];
-
-				// Collision with the ball
-
 				if (b.lives == 0)
 				{
 					bricks.erase(bricks.begin() + i);
@@ -143,7 +160,7 @@ class BrickBreaker : public olc::PixelGameEngine
 				}
 
 				FillRect(b.x, b.y, b.width, b.height, b.color);
-			}
+			}	
 			return true;
 		}
 
@@ -170,6 +187,12 @@ class BrickBreaker : public olc::PixelGameEngine
 					);
 				}
 			}
+		}
+
+		void reverseBallMovement(Ball *ball, float fElapsedTime)
+		{
+			ball->x -= ball->velocity.x * fElapsedTime;
+			ball->y -= ball->velocity.y * fElapsedTime;
 		}
 };
 
